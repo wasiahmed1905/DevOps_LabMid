@@ -49,14 +49,13 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                sh '''
-                    docker build -t ${IMAGE_NAME}:${SHORT_SHA} -t ${IMAGE_NAME}:latest .
-                '''
-            }
-        }
-
+	stage('Build Docker Image') {
+    	     steps {
+                 sh '''
+                     docker build --build-arg GIT_COMMIT=${FULL_SHA} -t wasiahmed1905/devops-labmid:latest -t wasiahmed1905/devops-labmid:latest .
+                 '''
+    }
+}
         stage('Deploy on AWS EC2') {
             steps {
                 sh '''
