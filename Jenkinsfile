@@ -1,3 +1,4 @@
+```groovy
 pipeline {
     agent any
 
@@ -25,21 +26,35 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
+                    // Get latest commit author's name
+                    def rawAuthor = sh(
+                        script: "git log -1 --pretty=format:'%an'",
+                        returnStdout: true
+                    ).trim()
+
+                    // Get latest commit author's email
                     def rawEmail = sh(
                         script: "git log -1 --pretty=format:'%ae'",
                         returnStdout: true
                     ).trim()
 
                     // Validate commit author's email
-                    if (rawEmail ==~ /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/ &&
-                        !rawEmail.contains("noreply.github.com")) {
-                        env.COMMIT_EMAIL = rawEmail
-                    } else {
-                        env.COMMIT_EMAIL = "qasimalik@gmail.com"
+                    if (!rawEmail ||
+                        !(rawEmail ==~ /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/) ||
+                        rawEmail.toLowerCase().contains("noreply.github.com")) {
+
+                        error(
+                            "Valid commit author email not found. " +
+                            "Configure Git user.email with a deliverable email address."
+                        )
                     }
 
+                    env.COMMIT_AUTHOR = rawAuthor
+                    env.COMMIT_EMAIL = rawEmail
+
                     echo "Commit: ${env.FULL_SHA}"
-                    echo "Notification recipient: ${env.COMMIT_EMAIL}"
+                    echo "Commit Author: ${env.COMMIT_AUTHOR}"
+                    echo "Notification Recipient: ${env.COMMIT_EMAIL}"
                 }
             }
         }
@@ -132,41 +147,52 @@ pipeline {
                     returnStdout: true
                 ).trim()
 
-                def recipients = [
-                    env.COMMIT_EMAIL,
-                    "qasimalik@gmail.com"
-                ].findAll { it }.unique().join(", ")
+                // Send report ONLY to the latest commit author
+                def recipients = env.COMMIT_EMAIL
 
-                try {
-                    emailext(
-                        from: "${env.SENDER_EMAIL}",
-                        to: "${recipients}",
-                        subject: "Jenkins Build ${currentBuild.currentResult} - ${env.STUDENT_ID} (${env.SHORT_SHA ?: 'N/A'})",
-                        body: """
-                            <h3>Automated ML Retraining Pipeline Report</h3>
+                if (recipients) {
+                    try {
+                        emailext(
+                            from: "${env.SENDER_EMAIL}",
+                            to: "${recipients}",
+                            subject: "Jenkins Build ${currentBuild.currentResult} - ${env.STUDENT_ID} (${env.SHORT_SHA ?: 'N/A'})",
+                            body: """
+                                <h3>Automated ML Retraining Pipeline Report</h3>
 
-                            <p><b>Student Reg No:</b> ${env.STUDENT_ID}</p>
-                            <p><b>Commit Author:</b> ${env.COMMIT_EMAIL ?: 'Unavailable'}</p>
-                            <p><b>Build Status:</b> ${currentBuild.currentResult}</p>
-                            <p><b>Git Commit SHA:</b> ${env.FULL_SHA ?: 'Unavailable'}</p>
+                                <p><b>Student Reg No:</b> ${env.STUDENT_ID}</p>
 
-                            <p><b>Live Metrics URL:</b>
-                            <a href="http://${ec2Ip}:8000/metrics">
-                            http://${ec2Ip}:8000/metrics
-                            </a></p>
+                                <p><b>Commit Author:</b> ${env.COMMIT_AUTHOR ?: 'Unavailable'}</p>
 
-                            <p><b>Jenkins Build URL:</b> ${env.BUILD_URL}</p>
+                                <p><b>Commit Author Email:</b> ${env.COMMIT_EMAIL ?: 'Unavailable'}</p>
 
-                            <h4>Live Metrics Output:</h4>
-                            <pre>${metricsOutput}</pre>
-                        """,
-                        mimeType: 'text/html'
-                    )
-                } catch (Exception e) {
-                    echo "WARNING: Email notification failed: ${e.getMessage()}"
-                    echo "Check Jenkins SMTP configuration."
+                                <p><b>Build Status:</b> ${currentBuild.currentResult}</p>
+
+                                <p><b>Git Commit SHA:</b> ${env.FULL_SHA ?: 'Unavailable'}</p>
+
+                                <p><b>Live Metrics URL:</b>
+                                <a href="http://${ec2Ip}:8000/metrics">
+                                http://${ec2Ip}:8000/metrics
+                                </a></p>
+
+                                <p><b>Jenkins Build URL:</b> ${env.BUILD_URL}</p>
+
+                                <h4>Live Metrics Output:</h4>
+                                <pre>${metricsOutput}</pre>
+                            """,
+                            mimeType: 'text/html'
+                        )
+
+                        echo "Build report sent to: ${recipients}"
+
+                    } catch (Exception e) {
+                        echo "WARNING: Email notification failed: ${e.getMessage()}"
+                        echo "Check Jenkins SMTP configuration."
+                    }
+                } else {
+                    echo "WARNING: No commit author email available. Report not sent."
                 }
             }
         }
     }
 }
+```
