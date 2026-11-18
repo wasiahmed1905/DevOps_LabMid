@@ -38,8 +38,9 @@ pipeline {
                     ).trim()
 
                     // Validate commit author's email
+                    // Corrected regex: \. matches a literal dot
                     if (!rawEmail ||
-                        !(rawEmail ==~ /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/) ||
+                        !(rawEmail ==~ /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/) ||
                         rawEmail.toLowerCase().contains("noreply.github.com")) {
 
                         error(
@@ -194,4 +195,3 @@ pipeline {
         }
     }
 }
-
