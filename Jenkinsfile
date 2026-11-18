@@ -6,7 +6,7 @@ pipeline {
         IMAGE_NAME     = "wasiahmed1905/devops-labmid"
         CONTAINER_NAME = "ml-midterm-container"
         RECIPIENT      = "qasimalik@gmail.com"
-        SENDER_EMAIL   = "wasiahmed1905@gmail.com>"
+        SENDER_EMAIL   = "wasiahmed1905@gmail.com"
         EC2_PUBLIC_IP  = "13.51.240.196"
     }
 
