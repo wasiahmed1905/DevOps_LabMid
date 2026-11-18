@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         STUDENT_ID     = "FA23-BDS-044"
-        IMAGE_NAME     = "ml-midterm-fa23-bds-044"
+        IMAGE_NAME     = "wasiahmed1905/devops-labmid"
         CONTAINER_NAME = "ml-midterm-container"
         RECIPIENT      = "qasimalik@gmail.com"
         SENDER_EMAIL   = "wasiahmed1905@gmail.com>"
