@@ -6,6 +6,8 @@ pipeline {
         IMAGE_NAME     = "ml-midterm-fa23-bds-044"
         CONTAINER_NAME = "ml-midterm-container"
         RECIPIENT      = "qasimalik@gmail.com"
+        SENDER_EMAIL   = "wasiahmed1905@gmail.com>"
+        EC2_PUBLIC_IP  = "13.51.240.196"
     }
 
     stages {
@@ -22,6 +24,7 @@ pipeline {
         stage('Install Dependencies & Train Model') {
             steps {
                 sh '''
+                    rm -rf venv
                     python3 -m venv venv
                     . venv/bin/activate
                     pip install --upgrade pip
@@ -35,7 +38,7 @@ pipeline {
             steps {
                 sh '''
                     . venv/bin/activate
-                    pytest
+                    pytest -v
                 '''
             }
         }
@@ -56,10 +59,9 @@ pipeline {
                     docker run -d \
                         --name ${CONTAINER_NAME} \
                         --restart unless-stopped \
-                        -p 8000:8000 \
+                        -p 0.0.0.0:8000:8000 \
                         ${IMAGE_NAME}:latest
-                    sleep 3
-                    curl -f http://localhost:8000/health
+                    curl --retry 5 --retry-delay 2 --retry-connrefused -f http://localhost:8000/health
                     curl -f http://localhost:8000/metrics
                 '''
             }
@@ -71,15 +73,17 @@ pipeline {
             script {
                 def metricsOutput = sh(script: "curl -s http://localhost:8000/metrics || echo 'Metrics unavailable'", returnStdout: true).trim()
                 emailext(
+                    from: "${env.SENDER_EMAIL}",
                     to: "${env.RECIPIENT}",
-                    subject: "Jenkins Pipeline ${currentBuild.currentResult} - ${env.STUDENT_ID} (${env.SHORT_SHA})",
+                    subject: "Jenkins Build ${currentBuild.currentResult} - ${env.STUDENT_ID} (${env.SHORT_SHA})",
                     body: """
-                        <h3>Automated ML Retraining Pipeline Result</h3>
+                        <h3>Automated ML Retraining Pipeline Report</h3>
                         <p><b>Student Reg No:</b> ${env.STUDENT_ID}</p>
-                        <p><b>Status:</b> ${currentBuild.currentResult}</p>
-                        <p><b>Git SHA:</b> ${env.FULL_SHA}</p>
-                        <p><b>Build URL:</b> ${env.BUILD_URL}</p>
-                        <h4>/metrics Response:</h4>
+                        <p><b>Build Status:</b> ${currentBuild.currentResult}</p>
+                        <p><b>Git Commit SHA:</b> ${env.FULL_SHA}</p>
+                        <p><b>Live Metrics URL:</b> <a href="http://${env.EC2_PUBLIC_IP}:8000/metrics">http://${env.EC2_PUBLIC_IP}:8000/metrics</a></p>
+                        <p><b>Jenkins Build URL:</b> ${env.BUILD_URL}</p>
+                        <h4>Live /metrics Output:</h4>
                         <pre>${metricsOutput}</pre>
                     """,
                     mimeType: 'text/html'
